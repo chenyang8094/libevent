@@ -2078,9 +2078,9 @@ event_assign(struct event *ev, struct event_base *base, evutil_socket_t fd, shor
 	ev->ev_fd = fd;
 	ev->ev_events = events;
 	ev->ev_res = 0;
-	ev->ev_flags = EVLIST_INIT;
-	ev->ev_ncalls = 0;
-	ev->ev_pncalls = NULL;
+	ev->ev_flags = EVLIST_INIT;//#define ev_flags ev_evcallback.evcb_flags
+	ev->ev_ncalls = 0;         //#define ev_ncalls	ev_.ev_signal.ev_ncalls
+	ev->ev_pncalls = NULL;     //#define ev_pncalls	ev_.ev_signal.ev_pncalls
 
 	if (events & EV_SIGNAL) {
 		if ((events & (EV_READ|EV_WRITE|EV_CLOSED)) != 0) {
@@ -2312,7 +2312,7 @@ event_priority_set(struct event *ev, int pri)
 	if (pri < 0 || pri >= ev->ev_base->nactivequeues)
 		return (-1);
 
-	ev->ev_pri = pri;
+	ev->ev_pri = pri;  //#define ev_pri ev_evcallback.evcb_pri
 
 	return (0);
 }
@@ -2547,6 +2547,7 @@ int
 event_add_nolock_(struct event *ev, const struct timeval *tv,
     int tv_is_absolute)
 {
+	// 获取该event绑定的event_base
 	struct event_base *base = ev->ev_base;
 	int res = 0;
 	int notify = 0;
@@ -2575,6 +2576,7 @@ event_add_nolock_(struct event *ev, const struct timeval *tv,
 	 * prepare for timeout insertion further below, if we get a
 	 * failure on any step, we should not change any state.
 	 */
+	// 如果为event设置了超时时间，那么就调整管理超时的最小堆
 	if (tv != NULL && !(ev->ev_flags & EVLIST_TIMEOUT)) {
 		if (min_heap_reserve_(&base->timeheap,
 			1 + min_heap_size_(&base->timeheap)) == -1)
@@ -2593,13 +2595,14 @@ event_add_nolock_(struct event *ev, const struct timeval *tv,
 		EVTHREAD_COND_WAIT(base->current_event_cond, base->th_base_lock);
 	}
 #endif
-
+    //  根据event的事件类型 且event没有注册或者激活链表里
 	if ((ev->ev_events & (EV_READ|EV_WRITE|EV_CLOSED|EV_SIGNAL)) &&
 	    !(ev->ev_flags & (EVLIST_INSERTED|EVLIST_ACTIVE|EVLIST_ACTIVE_LATER))) {
+		 // io 事件
 		if (ev->ev_events & (EV_READ|EV_WRITE|EV_CLOSED))
-			res = evmap_io_add_(base, ev->ev_fd, ev);
-		else if (ev->ev_events & EV_SIGNAL)
-			res = evmap_signal_add_(base, (int)ev->ev_fd, ev);
+			res = evmap_io_add_(base, ev->ev_fd, ev);//ev->ev_fd为IO监听的描述符
+		else if (ev->ev_events & EV_SIGNAL)//信号
+			res = evmap_signal_add_(base, (int)ev->ev_fd, ev);//ev->ev_fd为信号值
 		if (res != -1)
 			event_queue_insert_inserted(base, ev);
 		if (res == 1) {
@@ -2612,6 +2615,8 @@ event_add_nolock_(struct event *ev, const struct timeval *tv,
 	/*
 	 * we should change the timeout state only if the previous event
 	 * addition succeeded.
+	 *
+	 * event添加成功之后，调整超时时间状态
 	 */
 	if (res != -1 && tv != NULL) {
 		struct timeval now;
@@ -2650,10 +2655,11 @@ event_add_nolock_(struct event *ev, const struct timeval *tv,
 					*ev->ev_pncalls = 0;
 				}
 			}
-
+            // 操作链表
 			event_queue_remove_active(base, event_to_event_callback(ev));
 		}
 
+        // 更新时间
 		gettime(base, &now);
 
 		common_timeout = is_common_timeout(tv, base);

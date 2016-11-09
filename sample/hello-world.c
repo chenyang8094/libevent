@@ -59,7 +59,7 @@ main(int argc, char **argv)
 	sin.sin_port = htons(PORT);
 
 	listener = evconnlistener_new_bind(base, listener_cb, (void *)base,
-	    LEV_OPT_REUSEABLE|LEV_OPT_CLOSE_ON_FREE, -1,
+	    LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, -1,
 	    (struct sockaddr*)&sin,
 	    sizeof(sin));
 
@@ -68,6 +68,7 @@ main(int argc, char **argv)
 		return 1;
 	}
 
+    // 创建一个新的event
 	signal_event = evsignal_new(base, SIGINT, signal_cb, (void *)base);
 
 	if (!signal_event || event_add(signal_event, NULL)<0) {
@@ -75,6 +76,7 @@ main(int argc, char **argv)
 		return 1;
 	}
 
+    // 开始事件派发
 	event_base_dispatch(base);
 
 	evconnlistener_free(listener);

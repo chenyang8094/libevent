@@ -104,10 +104,11 @@ struct name {								\
 
 struct event;
 
+// 事件回调结构
 struct event_callback {
-	TAILQ_ENTRY(event_callback) evcb_active_next;
-	short evcb_flags;
-	ev_uint8_t evcb_pri;	/* smaller numbers are higher priority */
+	TAILQ_ENTRY(event_callback) evcb_active_next;//回调结构的双向链表
+	short evcb_flags;       // event当前状态，所有状态都在上方定义
+	ev_uint8_t evcb_pri;	/* 回调函数的优先级，值越小优先级越高 */
 	ev_uint8_t evcb_closure;
 	/* allows us to adopt for different types of events */
         union {
@@ -120,36 +121,42 @@ struct event_callback {
 };
 
 struct event_base;
+// 代表一个事件
 struct event {
+	// 该事件对应的回调函数
 	struct event_callback ev_evcallback;
 
 	/* for managing timeouts */
 	union {
-		TAILQ_ENTRY(event) ev_next_with_common_timeout;
-		int min_heap_idx;
+		TAILQ_ENTRY(event) ev_next_with_common_timeout;// 超时双向链表
+		int min_heap_idx;                              // 小堆中的索引
 	} ev_timeout_pos;
-	evutil_socket_t ev_fd;
 
-	struct event_base *ev_base;
+    // 对于 I/O 事件，是绑定的文件描述符;对于 signal 事件，是绑定的信号
+    // #define evutil_socket_t int
+	evutil_socket_t ev_fd;   
+
+    // 该event绑定的event_base（Reactor实例）
+	struct event_base *ev_base;  
 
 	union {
 		/* used for io events */
 		struct {
-			LIST_ENTRY (event) ev_io_next;
-			struct timeval ev_timeout;
+			LIST_ENTRY (event) ev_io_next; // IO事件的双向链表
+			struct timeval ev_timeout;     //  超时时间
 		} ev_io;
 
 		/* used by signal events */
 		struct {
-			LIST_ENTRY (event) ev_signal_next;
-			short ev_ncalls;
+			LIST_ENTRY (event) ev_signal_next; // signel事件的双向链表
+			short ev_ncalls;                   // 事件就绪执行时，调用 ev_callback 的次数，通常为 1
 			/* Allows deletes in callback */
-			short *ev_pncalls;
+			short *ev_pncalls;                 // 指针，通常指向 ev_ncalls 或者为 NULL;
 		} ev_signal;
 	} ev_;
 
-	short ev_events;
-	short ev_res;		/* result passed to event callback */
+	short ev_events;    // 关注的事件类型（EV_TIMEOUT，EV_READ，EV_WRITE，EV_SIGNAL，EV_PERSIST）
+	short ev_res;		/* result passed to event callback 记录了当前激活事件的类型*/
 	struct timeval ev_timeout;
 };
 

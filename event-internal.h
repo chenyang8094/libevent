@@ -82,6 +82,9 @@ extern "C" {
 #define EV_CLOSURE_EVENT_FINALIZE_FREE 6
 /** @} */
 
+/**
+ * 每种多路复用机制（select、epoll等），都必须实现这几个方法
+ */
 /** Structure to define the backend of a given event_base. */
 struct eventop {
 	/** The name of this backend. */
@@ -91,6 +94,7 @@ struct eventop {
 	 * run the backend, and return it.  The returned pointer will get
 	 * stored by event_init into the event_base.evbase field.  On failure,
 	 * this function should return NULL. */
+	//  初始化
 	void *(*init)(struct event_base *);
 	/** Enable reading/writing on a given fd or signal.  'events' will be
 	 * the events that we're trying to enable: one or more of EV_READ,
@@ -100,16 +104,20 @@ struct eventop {
 	 * fdinfo field below.  It will be set to 0 the first time the fd is
 	 * added.  The function should return 0 on success and -1 on error.
 	 */
+	// 注册事件
 	int (*add)(struct event_base *, evutil_socket_t fd, short old, short events, void *fdinfo);
 	/** As "add", except 'events' contains the events we mean to disable. */
+	// 删除事件
 	int (*del)(struct event_base *, evutil_socket_t fd, short old, short events, void *fdinfo);
 	/** Function to implement the core of an event loop.  It must see which
 	    added events are ready, and cause event_active to be called for each
 	    active event (usually via event_io_active or such).  It should
 	    return 0 on success and -1 on error.
 	 */
+	// 事件分发
 	int (*dispatch)(struct event_base *, struct timeval *);
 	/** Function to clean up and free our data from the event_base. */
+	//  注销，释放资源
 	void (*dealloc)(struct event_base *);
 	/** Flag: set if we need to reinitialize the event base after we fork.
 	 */
@@ -205,10 +213,11 @@ struct event_once {
 	void *arg;
 };
 
+// 
 struct event_base {
 	/** Function pointers and other data to describe this event_base's
 	 * backend. */
-	const struct eventop *evsel;
+	const struct eventop *evsel; // 封装了后端（select、epoll）的实际操作
 	/** Pointer to backend-specific data. */
 	void *evbase;
 
@@ -220,7 +229,7 @@ struct event_base {
 	 * uses for signals */
 	const struct eventop *evsigsel;
 	/** Data to implement the common signal handelr code. */
-	struct evsig_info sig;
+	struct evsig_info sig;   // 传给信号处理函数的数据
 
 	/** Number of virtual events */
 	int virtual_event_count;
@@ -285,7 +294,7 @@ struct event_base {
 	struct event_signal_map sigmap;
 
 	/** Priority queue of events with timeouts. */
-	struct min_heap timeheap;
+	struct min_heap timeheap;//管理超时event的最小堆
 
 	/** Stored timeval: used to avoid calling gettimeofday/clock_gettime
 	 * too often. */
